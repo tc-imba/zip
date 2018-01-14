@@ -13,71 +13,71 @@ var MADE_BY_UNIX = 3;     // See http://www.pkware.com/documents/casestudies/APP
 var Reader = exports.Reader = function (data) {
     if (!(this instanceof Reader))
         return new Reader(data);
-	if (bops.is(data))
-		this._source = new BufferSource(data);
-	else
-		this._source = new FdSource(data);
+    if (bops.is(data))
+        this._source = new BufferSource(data);
+    else
+        this._source = new FdSource(data);
     this._offset = 0;
-}
+};
 
 function FdSource(fd) {
-	this._fileLength = fs.fstatSync(fd).size;
-	this.length = function() {
-		return this._fileLength;
-	}
-	this.read = function(start, length) {
-		var result = bops.create(length);
-		while (length > 0) {
-			var pos = 0;
-			var toRead = length > 8192? 8192: length;
-			fs.readSync(fd, result, pos, toRead, start);
-			length -= toRead;
-			start += toRead;
-			pos += toRead;
-		}
-		return result;
-	}
+    this._fileLength = fs.fstatSync(fd).size;
+    this.length = function () {
+        return this._fileLength;
+    };
+    this.read = function (start, length) {
+        var result = bops.create(length);
+        while (length > 0) {
+            var pos = 0;
+            var toRead = length > 8192 ? 8192 : length;
+            fs.readSync(fd, result, pos, toRead, start);
+            length -= toRead;
+            start += toRead;
+            pos += toRead;
+        }
+        return result;
+    }
 }
 
 function BufferSource(buffer) {
-	this._buffer = buffer;
-	this.length = function() {
-		return buffer.length;
-	}
-	this.read = function (start, length) {
-		var bytes = bops.subarray(this._buffer, start, start+length);
-		return bytes;
-	}
+    this._buffer = buffer;
+    this.length = function () {
+        return buffer.length;
+    };
+    this.read = function (start, length) {
+        var bytes = bops.subarray(this._buffer, start, start + length);
+        return bytes;
+    }
 }
 
 Reader.prototype.length = function () {
-	return this._source.length();
-}
+    return this._source.length();
+};
 
 Reader.prototype.position = function () {
     return this._offset;
-}
+};
 
 Reader.prototype.seek = function (offset) {
     this._offset = offset;
-}
+};
 
 Reader.prototype.read = function (length) {
-	var bytes = this._source.read(this._offset, length);
-	this._offset += length;
-	return bytes;
-}
+    var bytes = this._source.read(this._offset, length);
+    this._offset += length;
+    return bytes;
+};
 
 Reader.prototype.readInteger = function (length, bigEndian) {
     if (bigEndian)
         return bytesToNumberBE(this.read(length));
     else
         return bytesToNumberLE(this.read(length));
-}
+};
 
 Reader.prototype.readString = function (length, charset) {
     return bops.to(this.read(length), charset || "utf8");
-}
+};
 
 Reader.prototype.readUncompressed = function (length, method) {
     var compressed = this.read(length);
@@ -89,7 +89,7 @@ Reader.prototype.readUncompressed = function (length, method) {
     else
         throw new Error("Unknown compression method: " + structure.compression_method);
     return uncompressed;
-}
+};
 
 Reader.prototype.readStructure = function () {
     var stream = this;
@@ -113,7 +113,7 @@ Reader.prototype.readStructure = function () {
     }
 
     return structure;
-}
+};
 
 // ZIP local file header
 // Offset   Bytes   Description
@@ -138,27 +138,27 @@ Reader.prototype.readLocalFileHeader = function (structure) {
         structure.signature = stream.readInteger(4);    // Local file header signature = 0x04034b50
 
     if (structure.signature !== LOCAL_FILE_HEADER)
-        throw new Error("ZIP local file header signature invalid (expects 0x04034b50, actually 0x" + structure.signature.toString(16) +")");
+        throw new Error("ZIP local file header signature invalid (expects 0x04034b50, actually 0x" + structure.signature.toString(16) + ")");
 
-    structure.version_needed       = stream.readInteger(2);    // Version needed to extract (minimum)
-    structure.flags                = stream.readInteger(2);    // General purpose bit flag
-    structure.compression_method   = stream.readInteger(2);    // Compression method
-    structure.last_mod_file_time   = stream.readInteger(2);    // File last modification time
-    structure.last_mod_file_date   = stream.readInteger(2);    // File last modification date
-    structure.crc_32               = stream.readInteger(4);    // CRC-32
-    structure.compressed_size      = stream.readInteger(4);    // Compressed size
-    structure.uncompressed_size    = stream.readInteger(4);    // Uncompressed size
-    structure.file_name_length     = stream.readInteger(2);    // File name length (n)
-    structure.extra_field_length   = stream.readInteger(2);    // Extra field length (m)
+    structure.version_needed = stream.readInteger(2);    // Version needed to extract (minimum)
+    structure.flags = stream.readInteger(2);    // General purpose bit flag
+    structure.compression_method = stream.readInteger(2);    // Compression method
+    structure.last_mod_file_time = stream.readInteger(2);    // File last modification time
+    structure.last_mod_file_date = stream.readInteger(2);    // File last modification date
+    structure.crc_32 = stream.readInteger(4);    // CRC-32
+    structure.compressed_size = stream.readInteger(4);    // Compressed size
+    structure.uncompressed_size = stream.readInteger(4);    // Uncompressed size
+    structure.file_name_length = stream.readInteger(2);    // File name length (n)
+    structure.extra_field_length = stream.readInteger(2);    // Extra field length (m)
 
     var n = structure.file_name_length;
     var m = structure.extra_field_length;
 
-    structure.file_name            = stream.readString(n);     // File name
-    structure.extra_field          = stream.read(m);           // Extra fieldFile name
+    structure.file_name = stream.readString(n);     // File name
+    structure.extra_field = stream.read(m);           // Extra fieldFile name
 
     return structure;
-}
+};
 
 // ZIP central directory file header
 // Offset   Bytes   Description
@@ -190,38 +190,38 @@ Reader.prototype.readCentralDirectoryFileHeader = function (structure) {
         structure.signature = stream.readInteger(4); // Central directory file header signature = 0x02014b50
 
     if (structure.signature !== CENTRAL_DIRECTORY_FILE_HEADER)
-        throw new Error("ZIP central directory file header signature invalid (expects 0x02014b50, actually 0x" + structure.signature.toString(16) +")");
+        throw new Error("ZIP central directory file header signature invalid (expects 0x02014b50, actually 0x" + structure.signature.toString(16) + ")");
 
-    structure.version                   = stream.readInteger(2);    // Version made by
-    structure.version_needed            = stream.readInteger(2);    // Version needed to extract (minimum)
-    structure.flags                     = stream.readInteger(2);    // General purpose bit flag
-    structure.compression_method        = stream.readInteger(2);    // Compression method
-    structure.last_mod_file_time        = stream.readInteger(2);    // File last modification time
-    structure.last_mod_file_date        = stream.readInteger(2);    // File last modification date
-    structure.crc_32                    = stream.readInteger(4);    // CRC-32
-    structure.compressed_size           = stream.readInteger(4);    // Compressed size
-    structure.uncompressed_size         = stream.readInteger(4);    // Uncompressed size
-    structure.file_name_length          = stream.readInteger(2);    // File name length (n)
-    structure.extra_field_length        = stream.readInteger(2);    // Extra field length (m)
-    structure.file_comment_length       = stream.readInteger(2);    // File comment length (k)
-    structure.disk_number               = stream.readInteger(2);    // Disk number where file starts
-    structure.internal_file_attributes  = stream.readInteger(2);    // Internal file attributes
-    structure.external_file_attributes  = stream.readInteger(4);    // External file attributes
-    structure.local_file_header_offset  = stream.readInteger(4);    // Relative offset of local file header
+    structure.version = stream.readInteger(2);    // Version made by
+    structure.version_needed = stream.readInteger(2);    // Version needed to extract (minimum)
+    structure.flags = stream.readInteger(2);    // General purpose bit flag
+    structure.compression_method = stream.readInteger(2);    // Compression method
+    structure.last_mod_file_time = stream.readInteger(2);    // File last modification time
+    structure.last_mod_file_date = stream.readInteger(2);    // File last modification date
+    structure.crc_32 = stream.readInteger(4);    // CRC-32
+    structure.compressed_size = stream.readInteger(4);    // Compressed size
+    structure.uncompressed_size = stream.readInteger(4);    // Uncompressed size
+    structure.file_name_length = stream.readInteger(2);    // File name length (n)
+    structure.extra_field_length = stream.readInteger(2);    // Extra field length (m)
+    structure.file_comment_length = stream.readInteger(2);    // File comment length (k)
+    structure.disk_number = stream.readInteger(2);    // Disk number where file starts
+    structure.internal_file_attributes = stream.readInteger(2);    // Internal file attributes
+    structure.external_file_attributes = stream.readInteger(4);    // External file attributes
+    structure.local_file_header_offset = stream.readInteger(4);    // Relative offset of local file header
 
     var n = structure.file_name_length;
     var m = structure.extra_field_length;
     var k = structure.file_comment_length;
 
-    structure.file_name                 = stream.readString(n);     // File name
-    structure.extra_field               = stream.read(m);           // Extra field
-    structure.file_comment              = stream.readString(k);     // File comment
-    structure.mode                      = stream.detectChmod(structure.version, structure.external_file_attributes); // chmod
+    structure.file_name = stream.readString(n);     // File name
+    structure.extra_field = stream.read(m);           // Extra field
+    structure.file_comment = stream.readString(k);     // File comment
+    structure.mode = stream.detectChmod(structure.version, structure.external_file_attributes); // chmod
 
     return structure;
-}
+};
 
-Reader.prototype.detectChmod = function(versionMadeBy, externalFileAttributes) {
+Reader.prototype.detectChmod = function (versionMadeBy, externalFileAttributes) {
     var madeBy = versionMadeBy >> 8,
         mode = externalFileAttributes >>> 16,
         chmod = false;
@@ -231,7 +231,7 @@ Reader.prototype.detectChmod = function(versionMadeBy, externalFileAttributes) {
         chmod = mode.toString(8);
     }
     return chmod;
-}
+};
 
 // finds the end of central directory record
 // I'd like to slap whoever thought it was a good idea to put a variable length comment field here
@@ -278,22 +278,22 @@ Reader.prototype.readEndOfCentralDirectoryRecord = function (structure) {
         structure.signature = stream.readInteger(4); // End of central directory signature = 0x06054b50
 
     if (structure.signature !== END_OF_CENTRAL_DIRECTORY_RECORD)
-        throw new Error("ZIP end of central directory record signature invalid (expects 0x06054b50, actually 0x" + structure.signature.toString(16) +")");
+        throw new Error("ZIP end of central directory record signature invalid (expects 0x06054b50, actually 0x" + structure.signature.toString(16) + ")");
 
-    structure.disk_number               = stream.readInteger(2);    // Number of this disk
-    structure.central_dir_disk_number   = stream.readInteger(2);    // Disk where central directory starts
-    structure.central_dir_disk_records  = stream.readInteger(2);    // Number of central directory records on this disk
+    structure.disk_number = stream.readInteger(2);    // Number of this disk
+    structure.central_dir_disk_number = stream.readInteger(2);    // Disk where central directory starts
+    structure.central_dir_disk_records = stream.readInteger(2);    // Number of central directory records on this disk
     structure.central_dir_total_records = stream.readInteger(2);    // Total number of central directory records
-    structure.central_dir_size          = stream.readInteger(4);    // Size of central directory (bytes)
-    structure.central_dir_offset        = stream.readInteger(4);    // Offset of start of central directory, relative to start of archive
-    structure.file_comment_length       = stream.readInteger(2);    // ZIP file comment length (n)
+    structure.central_dir_size = stream.readInteger(4);    // Size of central directory (bytes)
+    structure.central_dir_offset = stream.readInteger(4);    // Offset of start of central directory, relative to start of archive
+    structure.file_comment_length = stream.readInteger(2);    // ZIP file comment length (n)
 
     var n = structure.file_comment_length;
 
-    structure.file_comment              = stream.readString(n);     // ZIP file comment
+    structure.file_comment = stream.readString(n);     // ZIP file comment
 
     return structure;
-}
+};
 
 Reader.prototype.readDataDescriptor = function () {
     var stream = this;
@@ -303,11 +303,11 @@ Reader.prototype.readDataDescriptor = function () {
     if (descriptor.crc_32 === 0x08074b50)
         descriptor.crc_32 = stream.readInteger(4); // CRC-32
 
-    descriptor.compressed_size          = stream.readInteger(4);    // Compressed size
-    descriptor.uncompressed_size        = stream.readInteger(4);    // Uncompressed size
+    descriptor.compressed_size = stream.readInteger(4);    // Compressed size
+    descriptor.uncompressed_size = stream.readInteger(4);    // Uncompressed size
 
     return descriptor;
-}
+};
 
 Reader.prototype.iterator = function () {
     var stream = this;
@@ -336,13 +336,13 @@ Reader.prototype.iterator = function () {
             stream.seek(centralHeader.local_file_header_offset);
             var localHeader = stream.readLocalFileHeader();
 
-			// dont read the content just save the position for later use
-			var start = stream.position();
+            // dont read the content just save the position for later use
+            var start = stream.position();
 
             // seek back to the next central directory header
             stream.seek(saved);
 
-            return new Entry(localHeader, stream, start, centralHeader.compressed_size, centralHeader.compression_method, centralHeader.mode);
+            return new Entry(localHeader, stream, start, centralHeader.compressed_size, centralHeader.compression_method, centralHeader.mode, centralHeader.file_comment);
         }
     };
 };
@@ -380,14 +380,15 @@ Reader.prototype.toObject = function (charset) {
 Reader.prototype.close = function (mode, options) {
 };
 
-var Entry = exports.Entry = function (header, realStream, start, compressedSize, compressionMethod, mode) {
+var Entry = exports.Entry = function (header, realStream, start, compressedSize, compressionMethod, mode, comment) {
     this._mode = mode;
     this._header = header;
-	this._realStream = realStream;
+    this._realStream = realStream;
     this._stream = null;
-	this._start = start;
-	this._compressedSize = compressedSize;
-	this._compressionMethod = compressionMethod;
+    this._start = start;
+    this._compressedSize = compressedSize;
+    this._compressionMethod = compressionMethod;
+    this._comment = comment
 };
 
 Entry.prototype.getName = function () {
@@ -407,12 +408,12 @@ Entry.prototype.lastModified = function () {
 };
 
 Entry.prototype.getData = function () {
-	if (this._stream == null) {
-		var bookmark = this._realStream.position();
-		this._realStream.seek(this._start);
-		this._stream = this._realStream.readUncompressed(this._compressedSize, this._compressionMethod);
-		this._realStream.seek(bookmark);
-	}
+    if (this._stream == null) {
+        var bookmark = this._realStream.position();
+        this._realStream.seek(this._start);
+        this._stream = this._realStream.readUncompressed(this._compressedSize, this._compressionMethod);
+        this._realStream.seek(bookmark);
+    }
     return this._stream;
 };
 
@@ -420,10 +421,14 @@ Entry.prototype.getMode = function () {
     return this._mode;
 };
 
+Entry.prototype.getComment = function () {
+    return this._comment;
+};
+
 var bytesToNumberLE = function (bytes) {
     var acc = 0;
     for (var i = 0; i < bytes.length; i++)
-        acc += bops.readUInt8(bytes, i) << (8*i);
+        acc += bops.readUInt8(bytes, i) << (8 * i);
     return acc;
 };
 
@@ -437,14 +442,14 @@ var bytesToNumberBE = function (bytes) {
 var numberToBytesLE = function (number, length) {
     var bytes = [];
     for (var i = 0; i < length; i++)
-        bytes[i] = (number >> (8*i)) & 0xFF;
+        bytes[i] = (number >> (8 * i)) & 0xFF;
     return new bops.from(bytes);
 };
 
 var numberToBytesBE = function (number, length) {
     var bytes = [];
     for (var i = 0; i < length; i++)
-        bytes[length-i-1] = (number >> (8*i)) & 0xFF;
+        bytes[length - i - 1] = (number >> (8 * i)) & 0xFF;
     return new bops.from(bytes);
 };
 
@@ -457,5 +462,5 @@ var decodeDateTime = function (date, time) {
         (time >>> 5) & 63,
         (time & 63) * 2
     );
-}
+};
 
